@@ -1,0 +1,558 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+#描述
+Description: 'this is cyt homework'
+
+#参数
+Parameters:
+  #VPC CIDR 设置
+  VPCcidr:
+    Description: VPC cidr
+    Type: String
+    Default: 192.168.0.0/16
+  #公有子网1a CIDR 设置
+  SubnetPubcidr01:
+    Description: public subnet cidr block in AZ-1a
+    Type: String
+    Default: 192.168.0.0/24 
+  #公有子网1c CIDR 设置
+  SubnetPubcidr02:
+    Description: public subnet cidr block in AZ-1c
+    Type: String
+    Default: 192.168.1.0/24
+  #私有子网1a CIDR 设置
+  SubnetPvtcidr01:
+    Description: private subnet cidr block in AZ-1a
+    Type: String
+    Default: 192.168.2.0/24
+  #私有子网2a CIDR 设置
+  SubnetPvtcidr02:
+    Description: private subnet cidr block in AZ-1a
+    Type: String
+    Default: 192.168.3.0/24
+  #私有子网1c CIDR 设置
+  SubnetPvtcidr03:
+    Description: private subnet cidr block in AZ-1c
+    Type: String
+    Default: 192.168.4.0/24
+  #私有子网2c CIDR 设置
+  SubnetPvtcidr04:
+    Description: private subnet cidr block in AZ-1c
+    Type: String
+    Default: 192.168.5.0/24
+  #keypair设置
+  Keypair:
+    Type: AWS::EC2::KeyPair::KeyName
+
+#映射  
+Mappings:
+  #AWS ID与环境参数 映射关系作成
+  Env:
+    Id:
+      '533483453524': cyt
+  
+#条件
+Conditions:
+  #AWS账号为cyt对应的ID时，创建子网
+  createsubnet: !Equals [ !FindInMap [ Env, Id, !Ref AWS::AccountId ] , cyt]
+  #AWS账号为cyt对应的ID时，创建natgateway
+  createNGW: !Equals [ !FindInMap [ Env, Id, !Ref AWS::AccountId ] , cyt]
+  #AWS账号为cyt对应的ID时，创建EIP
+  createEIP: !Equals [ !FindInMap [ Env, Id, !Ref AWS::AccountId ] , cyt] 
+
+#资源
+Resources:
+  #VPC作成
+  CpiVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCcidr
+      EnableDnsHostnames: 'false'
+      EnableDnsSupport: 'true' 
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: cpi-vpc-01
+  #InternetGateway作成
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cpi-igw-01
+  #InternetGateway Attach
+  IGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref CpiVPC
+  #公有子网1a作成
+  Subnetpub1a:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref SubnetPubcidr01
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pub-1a
+      VpcId: !Ref CpiVPC
+  #公有子网1c作成
+  Subnetpub1c:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: !Ref SubnetPubcidr02
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pub-1c
+      VpcId: !Ref CpiVPC
+  #私有子网1a作成
+  Subnetpvt1a:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref SubnetPvtcidr01
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pri-1a
+      VpcId: !Ref CpiVPC
+  #私有子网1c作成
+  Subnetpvt1c:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: !Ref SubnetPvtcidr02
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pri-1c
+      VpcId: !Ref CpiVPC
+  #私有子网2a作成
+  Subnetpvt2a:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref SubnetPvtcidr03
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pri-2a
+      VpcId: !Ref CpiVPC
+  #私有子网2c作成
+  Subnetpvt2c:
+    Type: AWS::EC2::Subnet
+    Condition: createsubnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: !Ref SubnetPvtcidr04
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cpi-subnet-pri-2c
+      VpcId: !Ref CpiVPC
+  #公有子网路由表作成
+  CpiRTBpub1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cpi-rtb-pub1
+      VpcId: !Ref CpiVPC
+  #AZ-1a的私有子网路由表作成
+  CpiRTBpvt1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cpi-rtb-pvt1
+      VpcId: !Ref CpiVPC
+  #AZ-1c的私有子网路由表作成
+  CpiRTBpvt2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cpi-rtb-pvt2
+      VpcId: !Ref CpiVPC
+  #公有子网1a与公有子网路由表关联
+  SRApub1a:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpub1
+      SubnetId: !Ref Subnetpub1a 
+  #公有子网1c与公有子网路由表关联
+  SRApub1c:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpub1
+      SubnetId: !Ref Subnetpub1c
+  #私有子网1a与AZ-1a的私有子网路由表关联
+  SRApri1a:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpvt1
+      SubnetId: !Ref Subnetpvt1a
+  #私有子网1a与AZ-1a的私有子网路由表关联
+  SRApri2a:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpvt1
+      SubnetId: !Ref Subnetpvt2a
+  #私有子网1c与AZ-1c的私有子网路由表关联
+  SRApri1c:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpvt2
+      SubnetId: !Ref Subnetpvt1c
+  #私有子网1c/2c与AZ-1c的私有子网路由表关联
+  SRApri2c:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CpiRTBpvt2
+      SubnetId: !Ref Subnetpvt2c
+  #为AZ-1a的natgateway配置EIP
+  EIP1a:
+    Type: AWS::EC2::EIP
+    Condition: createEIP
+    Properties:
+      Domain: vpc
+  #为AZ-1c的natgateway配置EIP
+  EIP1c:
+    Type: AWS::EC2::EIP
+    Condition: createEIP
+    Properties:
+      Domain: vpc
+  #AZ-1a的natgateway作成
+  NGW1a:
+    Type: AWS::EC2::NatGateway
+    Condition: createNGW
+    Properties:
+      AllocationId: !GetAtt EIP1a.AllocationId
+      SubnetId: !Ref Subnetpub1a
+      Tags:
+        - Key: Name
+          Value: cpi-ngw-pub1a
+  #AZ-1c的natgateway作成
+  NGW1c:
+    Type: AWS::EC2::NatGateway
+    Condition: createNGW
+    Properties:
+      AllocationId: !GetAtt EIP1c.AllocationId
+      SubnetId: !Ref Subnetpub1c
+      Tags:
+        - Key: Name
+          Value: cpi-ngw-pub1c
+  #添加natgateway1a路由到AZ-1a的私有子网路由表
+  NGWroute1a:
+    DependsOn: NGW1a
+    Type: AWS::EC2::Route
+    Properties:
+      NatGatewayId: !Ref NGW1a
+      RouteTableId: !Ref CpiRTBpvt1
+      DestinationCidrBlock: 0.0.0.0/0
+  #添加natgateway1c路由到AZ-1c的私有子网路由表
+  NGWroute1c:
+    DependsOn: NGW1c
+    Type: AWS::EC2::Route
+    Properties:
+      NatGatewayId: !Ref NGW1c
+      RouteTableId: !Ref CpiRTBpvt2
+      DestinationCidrBlock: 0.0.0.0/0
+  #添加InternetGateway路由到公有子网路由表
+  IGWroute:  
+    Type: AWS::EC2::Route
+    Properties:
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref CpiRTBpub1
+      DestinationCidrBlock: 0.0.0.0/0
+  #公有服务器安全组作成
+  SGpub:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SecurityGroup For PubServer1a
+      GroupName: SgPub
+      VpcId: !Ref CpiVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cpi-sg-pub
+  #私有服务器安全组作成
+  SGpri:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SecurityGroup For PribServer1a/1c/2a/2c
+      GroupName: SgPri
+      VpcId: !Ref CpiVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SubnetPubcidr01
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref SGalb
+      Tags:
+        - Key: Name
+          Value: cpi-sg-pri
+  #负载均衡器安全组作成
+  SGalb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SecurityGroup For ALB
+      GroupName: SgALB
+      VpcId: !Ref CpiVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cpi-sg-alb
+  #公有服务器作成
+  EC2pub:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 'ami-0bba69335379e17f8'
+      InstanceType: t2.micro
+      KeyName: !Ref Keypair 
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: 'true'
+          DeviceIndex: '0'
+          GroupSet: 
+            - !Ref SGpub
+          SubnetId: !Ref Subnetpub1a
+      Tags:
+        - Key: Name
+          Value: cpi-pub
+  #为公有服务器配置EIP
+  EIPec2Pub:
+    Type: AWS::EC2::EIP
+    Condition: createEIP
+    Properties:
+      InstanceId: !Ref EC2pub
+  #私有服务器1a作成
+  EC2pri1a:
+    DependsOn: NGWroute1a
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 'ami-0bba69335379e17f8'
+      InstanceType: t2.micro
+      KeyName: !Ref Keypair 
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: 'false'
+          DeviceIndex: '0'
+          GroupSet: 
+            - !Ref SGpri
+          SubnetId: !Ref Subnetpvt1a
+      UserData:
+        Fn::Base64:  |
+          #!/bin/bash
+          sudo su
+          yum install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+          cd /var/www/html
+          touch index.html
+          echo "<html>" > index.html
+          echo "<head>" >> index.html
+          echo "<style type="text/css">" >> index.html
+          echo "p {font-size:100px;color:Turquoise}" >> index.html
+          echo "</style>" >> index.html
+          echo "</head>" >> index.html
+          echo "<body>" >> index.html
+          echo "<p>Page for stack-web-pc-1a</p>" >> index.html
+          echo "</body>" >> index.html
+          echo "</html>" >> index.html
+      Tags:
+        - Key: Name
+          Value: cpi-pri-1a
+  #私有服务器1c作成
+  EC2pri1c:
+    DependsOn: NGWroute1c
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 'ami-0bba69335379e17f8'
+      InstanceType: t2.micro
+      KeyName: !Ref Keypair 
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: 'false'
+          DeviceIndex: '0'
+          GroupSet: 
+            - !Ref SGpri
+          SubnetId: !Ref Subnetpvt1c
+      UserData:
+        Fn::Base64:  |
+          #!/bin/bash
+          sudo su
+          yum install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+          cd /var/www/html
+          touch index.html
+          echo "<html>" > index.html
+          echo "<head>" >> index.html
+          echo "<style type="text/css">" >> index.html
+          echo "p {font-size:100px;color:Turquoise}" >> index.html
+          echo "</style>" >> index.html
+          echo "</head>" >> index.html
+          echo "<body>" >> index.html
+          echo "<p>Page for stack-web-pc-1c</p>" >> index.html
+          echo "</body>" >> index.html
+          echo "</html>" >> index.html
+      Tags:
+        - Key: Name
+          Value: cpi-pri-1c
+  #负载均衡器作成
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: "application"
+      Scheme: "internet-facing"
+      Name: CpiALB
+      Tags:
+        - Key: Name
+          Value: cpi-alb
+      IpAddressType: ipv4
+      Subnets: 
+        - !Ref Subnetpub1a
+        - !Ref Subnetpub1c
+      SecurityGroups: 
+        - !Ref SGalb
+  #添加监听
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+  #负载均衡器目标组作成
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: CpiTGP
+      Tags:
+        - Key: Name
+          Value: cpi-target-group
+      Port: 80
+      Protocol: HTTP
+      Matcher:
+        HttpCode: '200'
+      VpcId: !Ref CpiVPC
+      TargetType: instance
+      Targets:
+        - Id: !Ref EC2pri1a
+          Port: 80
+        - Id: !Ref EC2pri1c
+          Port: 80
+  
+#输出
+Outputs:
+  CpiVPC: 
+    Value: !Ref CpiVPC
+    Export: 
+      Name: VPCID
+
+  Subnetpub1a: 
+    Value: !Ref Subnetpub1a
+    Export: 
+      Name: Subnetpub1aID
+
+  Subnetpub1c: 
+    Value: !Ref Subnetpub1c
+    Export: 
+      Name: Subnetpub1cID
+  
+  Subnetpvt1a: 
+    Value: !Ref Subnetpvt1a
+    Export: 
+      Name: Subnetpvt1aID
+
+  Subnetpvt1c: 
+    Value: !Ref Subnetpvt1c
+    Export: 
+      Name: Subnetpvt1cID
+
+  Subnetpvt2a: 
+    Value: !Ref Subnetpvt2a
+    Export: 
+      Name: Subnetpvt2aID
+
+  Subnetpvt2c: 
+    Value: !Ref Subnetpvt2c
+    Export: 
+      Name: Subnetpvt2cID
+
+  CpiRTBpub1: 
+    Value: !Ref CpiRTBpub1
+    Export: 
+      Name: CpiRTBpub1ID
+
+  CpiRTBpvt1: 
+    Value: !Ref CpiRTBpvt1
+    Export: 
+      Name: CpiRTBpvt1ID
+
+  CpiRTBpvt2: 
+    Value: !Ref CpiRTBpvt2
+    Export: 
+      Name: CpiRTBpvt2ID
+
+  SGpub: 
+    Value: !Ref SGpub
+    Export: 
+      Name: SGpubID
+
+  SGpri: 
+    Value: !Ref SGpri
+    Export: 
+      Name: SGpriID
+
+  SGalb: 
+    Value: !Ref SGalb
+    Export: 
+      Name: SGalbID
+
+  EC2pub: 
+    Value: !Ref EC2pub
+    Export: 
+      Name: EC2pubID
+
+  EC2pri1a: 
+    Value: !Ref EC2pri1a
+    Export: 
+      Name: EC2pri1aID
+
+  EC2pri1c: 
+    Value: !Ref EC2pri1c
+    Export: 
+      Name: EC2pri1cID
+
+  ALB: 
+    Value: !GetAtt ALB.DNSName
+    Export: 
+      Name: ALBDNSName
